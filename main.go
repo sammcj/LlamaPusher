@@ -70,7 +70,7 @@ func main() {
 		log.Fatal("This is not a git repository 🙅‍♂️")
 	}
 
-	diff := getGitDiff()
+	diff := getGitDiff(*filterFiles)
 	if diff == "" {
 		fmt.Println("No changes to commit 🙅")
 		fmt.Println("Maybe you forgot to add the files? Try git add . and then run this script again.")
@@ -83,7 +83,7 @@ func main() {
 			log.Fatal(err)
 		}
 	} else {
-		err := generateSingleCommit(diff, *model, *language, *template, *emoji, *commitType, *maxTokens, *topP, *temperature, *repetitionPenalty, *force, *filterFee)
+		err := generateSingleCommit(diff, *model, *language, *template, *emoji, *commitType, *maxTokens, *topP, *temperature, *repetitionPenalty, *force, *filterFee, *filterFiles)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -100,8 +100,11 @@ func checkGitRepository() bool {
 	return strings.TrimSpace(string(output)) == "true"
 }
 
-func getGitDiff() string {
-    cmd := exec.Command("git", "diff", "--staged")
+func getGitDiff(filterFiles string) string {
+    cmd := exec.Command("git", "diff", "--staged" , "--no-color", "--no-prefix")
+		if filterFiles != "" {
+			cmd.Args = append(cmd.Args, filterFiles)
+		}
     output, err := cmd.Output()
     if err != nil {
         log.Fatal(err)
@@ -128,8 +131,16 @@ func getGitDiff() string {
     return strings.Join(diffLines, "\n")
 }
 
-func generateSingleCommit(diff, model, language, template string, doAddEmoji bool, commitType string, maxTokens, topP, temperature, repetitionPenalty int, force, filterFee bool) error {
-	prompt := getPromptForSingleCommit(diff, commitType, language)
+func generateSingleCommit(diff, model, language, template string, doAddEmoji bool, commitType string, maxTokens, topP, temperature, repetitionPenalty int, force, filterFee bool, filterFiles string) error {
+    diff = getGitDiff(filterFiles)
+
+    if diff == "" {
+        fmt.Println("No changes to commit 🙅")
+        fmt.Println("Maybe you forgot to add the files? Try git add . and then run this script again.")
+        os.Exit(1)
+    }
+
+    prompt := getPromptForSingleCommit(diff, commitType, language)
 
 	proceed, err := filterAPI(prompt, 1, maxTokens, filterFee)
 	if err != nil {
